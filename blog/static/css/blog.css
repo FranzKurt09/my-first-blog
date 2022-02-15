@@ -1,5 +1,5 @@
 h1 a, h2 a {
-    color: #80e640;
+    color: #000000;
     font-family: 'Lobster';
 }
 
@@ -22,6 +22,7 @@ body {
     font-size: 36pt;
     text-decoration: none;
 }
+
 
 h1,
 h2,
@@ -76,4 +77,8 @@ h4 {
 .btn-secondary:hover {
     color: #000000;
     background-color: #80e640;
+}
+
+.comment {
+    margin: 20px 0px 20px 20px;
 }
