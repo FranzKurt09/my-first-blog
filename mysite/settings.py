@@ -9,8 +9,6 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-import os
-import dj_database_url
 
 from pathlib import Path
 
@@ -25,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-wtqvod%cv^uork@xkc))qk@oet#j#)=d=0=#!-v-rqc0#9=tih'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1','.pythonanywhere','.herokuapp.com']
+ALLOWED_HOSTS = ['127.0.0.1','.pythonanywhere.com']
 
 
 # Application definition
@@ -78,12 +76,8 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'd5ubqni0ti3kad',
-        'USER': 'ifvmpbegrxerve',
-        'PASSWORD': '9e98ee553dceb7f335bfb8d3000d41cd1c8969db9b5d1cb80479e3f5c2503588',
-        'HOST': 'ec2-54-209-221-231.compute-1.amazonaws.com',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -125,7 +119,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR,'static')
+STATIC_ROOT = BASE_DIR / 'static'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
@@ -134,9 +128,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login
 LOGIN_REDIRECT_URL = '/'
-
-db_from_env = dj_database_url.config(conn_max_age=500)
-DATABASES['default'].update(db_from_env)
-
-import django_on_heroku
-django_on_heroku.settings(locals())
