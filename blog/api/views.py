@@ -1,5 +1,3 @@
-from multiprocessing import context
-from pickle import FALSE
 from blog.api.serializers import PostSerializer, CommentSerializer
 from blog.models import Post, Comment
 from rest_framework.views import APIView
@@ -14,6 +12,7 @@ class PostsDataMixin:
 
     def get_posts_data(self, posts):
         """Get posts data from posts queryset."""
+        
         posts_data = []
         for post in posts:
             data = {
@@ -27,6 +26,7 @@ class PostsDataMixin:
     
     def get_post_data(self, post):
         """Return individual post data."""
+        
         data = {
             "id": post.id, 
             "title": post.title, 
@@ -42,13 +42,15 @@ class CommentsDataMixin(PostsDataMixin):
     
     def get_comments_data(self, comments):
         """Get comment data from comment queryset."""
+        
         comments_data = []
         for comment in comments:
             data = {
                 "id": comment.id,
                 "post": self.get_post_data(comment.post),
                 "author": comment.author, 
-                "text": comment.text
+                "text": comment.text,
+                "is_approved": comment.is_approved()
                 }
             comments_data.append(data)
         
@@ -56,6 +58,7 @@ class CommentsDataMixin(PostsDataMixin):
     
     def get_comment_data(self, comment):
         """Return individual comment data."""
+        
         data = {
             "id": comment.id, 
             "post": comment.post.id,
@@ -73,6 +76,7 @@ class  PublishedPostsAPIView(PostsDataMixin, APIView):
     
     def get(self, request, *args, **kwargs):
         """Get all published posts data."""
+        
         posts = Post.objects.exclude(published_date=None)
         posts_data = self.get_posts_data(posts)
         response = {
@@ -101,6 +105,7 @@ class UnpublishedPostsAPIView(PostsDataMixin, APIView):
 
     def get(self, request, *args, **kwargs):
         """Get all published posts data."""
+        
         posts = Post.objects.filter(published_date=None)
         posts_data = self.get_posts_data(posts)
         response = {
@@ -114,10 +119,11 @@ class UnpublishedPostsAPIView(PostsDataMixin, APIView):
 class PostAPIView(PostsDataMixin, APIView):
     """API for blog post."""
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request, post_id, *args, **kwargs):
         """Get post data on given post id or primary key, pk."""
+        
         try:
-            post = Post.objects.get(pk=self.kwargs.get('pk'))
+            post = Post.objects.get(pk=post_id)
             response = {
                 "data": self.get_post_data(post)
             }
@@ -155,6 +161,7 @@ class PostAPIView(PostsDataMixin, APIView):
         
     def put(self, request, *args, **kwargs):
         """Update blog post on given data with id"""
+        
         try:
             data = request.data
             post_id = data.get("id")
@@ -186,10 +193,11 @@ class PostAPIView(PostsDataMixin, APIView):
             }
             return Response(error_response, status=400)
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request, post_id, *args, **kwargs):
         """Delete post in given post id or primary key, pk"""
+        
         try:
-            post = Post.objects.get(pk=self.kwargs.get('pk')).delete()
+            post = Post.objects.get(pk=post_id).delete()
             response = {
                 "title": "Success",
                 "message": "Post deleted!"
@@ -215,8 +223,10 @@ class ListAPIView(PostsDataMixin, APIView):
    
 class CommentAPIView(CommentsDataMixin, APIView):
     """API for accessing a comment."""
+    
     def get(self, request, comment_id, *args, **kwargs):
         """Get comment data on given post id or primary key, pk"""
+        
         try:
             comment = Comment.objects.get(pk=comment_id)
             response = {
@@ -233,6 +243,7 @@ class CommentAPIView(CommentsDataMixin, APIView):
 
 class CommentsAPIView(CommentsDataMixin, APIView):
     """API for posting comments."""
+    
     def post(self, request, *args, **kwargs):
         try:
             data = request.data
@@ -261,10 +272,12 @@ class CommentsAPIView(CommentsDataMixin, APIView):
 class ApprovedCommentsAPIView(CommentsDataMixin, APIView):
     """API for getting the approved comments"""
     
+    permission_classes = [AllowAny]
+    
     def get(self, request, *args, **kwargs):
         """Get all approved comment data."""
+        
         comments = Comment.objects.exclude(approved_comment=False)
-        print(comments)
         comments_data = self.get_comments_data(comments)
         response = {
             "data": comments_data, 
@@ -279,6 +292,7 @@ class ApprovingCommentAPIView(APIView):
     
     def patch(self, request, comment_id, *args, **kwargs):
         """Approving comment with given comment id or primary key."""
+        
         comment = Comment.objects.get(pk=comment_id)
         comment.approve()
         response = {
@@ -289,6 +303,7 @@ class ApprovingCommentAPIView(APIView):
     
     def delete(self, request, comment_id, *args, **kwargs):
         """Removing comment."""
+        
         comment = Comment.objects.get(pk=comment_id)
         comment.delete()
         response = {
@@ -312,4 +327,22 @@ class CustomAuthToken(ObtainAuthToken):
             }
         )
         
-# token = "0d099c936e6fae83188134bbc0427425b1e6db39"
+
+class PostCommentsAPIView(CommentsDataMixin, APIView):
+    """API for getting comments for a specific post"""
+    
+    def get(self, request, post_id, *args, **kwargs):
+        """Get post data on given post id or primary key, pk."""
+        
+        try:
+            comment = Comment.objects.filter(post=post_id)
+            response = {
+                "data": self.get_comments_data(comment)
+            }
+            return Response(response, 200)
+        except Comment.DoesNotExist:
+            error_response = {
+                "title": "Error",
+                "message": "Post and Comments not found."
+            }
+            return Response(error_response, status=400)
