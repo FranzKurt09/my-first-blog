@@ -18,7 +18,8 @@ class PostsDataMixin:
             data = {
                 "id": post.id, 
                 "title": post.title, 
-                "text": post.text
+                "text": post.text,
+                "is_published": post.is_published(),
                 }
             posts_data.append(data)
 
