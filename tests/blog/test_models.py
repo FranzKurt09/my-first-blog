@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.test import TestCase
 from django.contrib.auth.models import User
 
-from blog.models import Post
+from blog.models import Post, Comment
 
 class PostModelTestCase(TestCase):
     """Post model test case."""
@@ -24,7 +24,7 @@ class PostModelTestCase(TestCase):
         )
         self.published_post = Post.objects.create(
             author = self.user,
-            title="Test unpublished post",
+            title="Test published post",
             text="Test",
             published_date=timezone.now()
         )
@@ -48,3 +48,55 @@ class PostModelTestCase(TestCase):
 
         self.assertEqual(post.__str__(), expected)
         self.assertEqual(str(post), expected)
+        
+
+class CommentModelTestCase(TestCase):
+    """Comment model test case."""
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Run one time class set up."""
+        return super().setUpClass()
+    
+    def setUp(self) -> None:
+        """Run this set up before each test."""
+        
+        self.user = User.objects.create(username="testuser")
+        self.post = Post.objects.create(
+                author = self.user,
+                title="Test post",
+                text="Test",
+                )
+        
+        self.approved_comment = Comment.objects.create(
+            author = "Test author",
+            post = self.post,
+            text = "Test approved comment",
+            approved_comment = True
+            )
+        self.unapproved_comment = Comment.objects.create(
+            author = "Test author",
+            post = self.post,
+            text = "Test unapproved comment",
+            approved_comment = False
+        )
+        
+    def test_is_approved_on_approved_comment(self) -> None:
+        """Test is_approved on approved comments"""
+        self.assertTrue(self.approved_comment.is_approved())
+        
+    def test_is_approved_on_unapproved_comment(self) -> None:
+        """Test is_approved on unapproved comments."""
+        self.assertFalse(self.unapproved_comment.is_approved())
+        
+    def test_str_method(self) -> None:
+        """Test __str__ method."""
+        comment = self.approved_comment
+        expected = comment.text
+
+        self.assertEqual(comment.__str__(), expected)
+        self.assertEqual(str(comment), expected)
+        
+    def test_approve_method(self) -> None:
+        """Test approve method."""
+        pass
