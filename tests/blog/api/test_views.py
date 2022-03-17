@@ -1,13 +1,14 @@
 from itertools import count
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from django.contrib.auth.models import User
 
-from rest_framework.test import APITestCase, APIRequestFactory
+from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
 from blog.api.views import (
     PublishedPostsAPIView,
-    ApprovedCommentsAPIView
+    ApprovedCommentsAPIView,
+    UnpublishedPostsAPIView
 )
 from blog.models import Post, Comment
 
@@ -48,19 +49,6 @@ class PublishedPostsAPIViewTestCase(APITestCase):
         posts = Post.objects.all()
 
         user = User.objects.create(username="testuser")
-        published_post = Post.objects.create(
-            author = user,
-            title="Test unpublished post",
-            text="Test",
-            published_date=timezone.now()
-        )
-
-        unpublished_post = Post.objects.create(
-            author = user,
-            title="Test unpublished post",
-            text="Test",
-            published_date=None
-        )
 
         posts_data = self.get_posts_data(posts)
         expected = {
@@ -69,7 +57,6 @@ class PublishedPostsAPIViewTestCase(APITestCase):
         }
 
         published_posts_count = Post.objects.exclude(published_date=None).count()
-        
 
         request = self.request_factory.get(self.url)
         response = self.view(request)
@@ -153,20 +140,6 @@ class ApprovedCommentsAPIViewTestCase(TestCase):
                 text="Test",
                 )
         
-        approved_comment = Comment.objects.create(
-            author = "Test author",
-            post = post,
-            text = "Test approved comment",
-            approved_comment = True
-            )
-        
-        unapproved_comment = Comment.objects.create(
-            author = "Test author",
-            post = post,
-            text = "Test unapproved comment",
-            approved_comment = False
-        )
-        
         comments_data = self.get_comments_data(comments)
         expected = {
             "data": comments_data,
@@ -182,3 +155,58 @@ class ApprovedCommentsAPIViewTestCase(TestCase):
         
         self.assertEqual(response_data, expected)
         self.assertEqual(approved_comments_count, response_data["count"])
+        
+
+class UnpublishedPostsAPIViewTestCase(TestCase):
+    """UnpublishedPostsAPIView test case."""
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Run one time class setup initialization."""
+        return super().setUpClass()
+    
+    def setUp(self) -> None:
+        """Run this setup before each test."""
+        self.url = "post/unpublished/"
+        self.view = UnpublishedPostsAPIView.as_view()
+        self.request_factory = APIRequestFactory()
+        
+    def get_posts_data(self, posts) -> list:
+        """Get posts data."""
+
+        posts_data = []
+        for post in posts:
+            if post.is_published():
+                data = {
+                    "id": post.id, 
+                    "title": post.title, 
+                    "text": post.text,
+                    "is_published": post.is_published(),
+                    }
+                posts_data.append(data)
+
+        return posts_data
+    
+    def test_get_method_returns_all_unpublished_post(self) -> None:
+        """Get method should return all unpublished post."""
+        
+        posts = Post.objects.all()
+        
+        user = User.objects.create(username="testuser")
+        
+        posts_data = self.get_posts_data(posts)
+        expected = {
+            "data": posts_data,
+            "count": len(posts_data)
+        }
+        
+        unpublished_posts_count = Post.objects.filter(published_date = None).count()
+        
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request)
+        
+        response_data = response.data
+        
+        self.assertEqual(response_data, expected)
+        self.assertEqual(unpublished_posts_count, response_data["count"])
