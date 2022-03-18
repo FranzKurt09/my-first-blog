@@ -39,7 +39,7 @@ class PostModelTestCase(TestCase):
 
     def test_publish_method(self) -> None:
         """Test publish method."""
-        pass
+        self.assertIs(self.unpublished_post.publish(), None)
 
     def test_str_method(self) -> None:
         """Test __str__ method."""
@@ -99,4 +99,8 @@ class CommentModelTestCase(TestCase):
         
     def test_approve_method(self) -> None:
         """Test approve method."""
+        self.assertIs(self.unapproved_comment.approve(), None)
+        
+    def test_approved_comments_method(self) -> None:
+        """Test approved_comments method"""
         pass
