@@ -160,13 +160,12 @@ class PostAPIView(PostsDataMixin, APIView):
             }
             return Response(error_response, status=400)
         
-    def put(self, request, *args, **kwargs):
+    def put(self, request, post_id, *args, **kwargs):
         """Update blog post on given data with id"""
         
         try:
             data = request.data
-            post_id = data.get("id")
-            post = Post.objects.get(id=post_id)
+            post = Post.objects.get(pk=post_id)
             serializer = PostSerializer(instance=post, data=data)
             
             if serializer.is_valid():

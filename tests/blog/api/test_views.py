@@ -3,6 +3,9 @@ from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from django.contrib.auth.models import User
 
+from django.test.utils import tag
+from pprint import pprint
+
 from blog.api.serializers import PostSerializer
 
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
@@ -13,7 +16,11 @@ from blog.api.views import (
     UnpublishedPostsAPIView,
     PostAPIView,
     ListAPIView,
-    CommentsAPIView
+    CommentAPIView,
+    CommentsAPIView,
+    PostCommentsAPIView,
+    ApprovingCommentAPIView,
+    PostPublishingAPIView
 )
 from blog.models import Post, Comment
 
@@ -139,6 +146,7 @@ class ApprovedCommentsAPIViewTestCase(TestCase):
         self.assertEqual(approved_comments_count, response_data["count"])
         
 
+
 class UnpublishedPostsAPIViewTestCase(TestCase):
     """UnpublishedPostsAPIView test case."""
     
@@ -192,7 +200,11 @@ class UnpublishedPostsAPIViewTestCase(TestCase):
         
         self.assertEqual(response_data, expected)
         self.assertEqual(unpublished_posts_count, response_data["count"])
-        
+       
+       
+
+#work on this too
+
 class PostAPIViewTestCase(TestCase):
     """PostAPIView test case."""
     
@@ -212,14 +224,13 @@ class PostAPIViewTestCase(TestCase):
 
         posts_data = []
         for post in posts:
-            if post.is_published():
-                data = {
-                    "id": post.id, 
-                    "title": post.title, 
-                    "text": post.text,
-                    "is_published": post.is_published(),
-                    }
-                posts_data.append(data)
+            data = {
+                "id": post.id, 
+                "title": post.title, 
+                "text": post.text,
+                "is_published": post.is_published(),
+                }
+            posts_data.append(data)
 
         return posts_data
     
@@ -235,11 +246,65 @@ class PostAPIViewTestCase(TestCase):
             }
         return data
     
+
     def test_get_method(self) -> None:
-        """Get method succesfully edits a post"""
-        pass
+        """Get method succesfully views a post"""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        post_id = post.id
+        
+        expected = {
+                    "data": self.get_post_data(post)
+                }
+
+        self.url = "posts/" + str(post_id) + "/"
+
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
     
-    def test_post_method(self) -> None:
+    #okay for error
+    def test_post_method_error(self) -> None:
+        """Post method succesfully creates a new post"""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        
+        expected = {
+                    "data": self.get_post_data(post)
+                }
+        pprint(expected)
+
+        self.url = "posts/"
+
+        request = self.request_factory.post(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request)
+        pprint(request)
+        pprint(response)
+        
+        response_data = response.data
+        pprint(response_data)
+
+        self.assertNotEqual(response_data, expected)
+        self.assertEqual(response.status_code, 400)
+        
+    #not working
+    def test_post_method_success(self) -> None:
         """Post method succesfully creates a new post"""
         
         user = User.objects.create(username="testuser")
@@ -266,10 +331,35 @@ class PostAPIViewTestCase(TestCase):
     def test_put_method(self) -> None:
         """Put method succesfully edits a post"""
         pass
-        
+    
     def test_delete_method(self) -> None:
         """Delete method succesfully deletes a post"""
-        pass
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        post_id = post.id
+        
+        expected = {
+            "title": "Success",
+                "message": "Post deleted!"
+        }
+        
+        self.url = "posts/" + str(post_id) + "/"
+
+        request = self.request_factory.delete(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
+       
+       
        
 class ListAPIViewTestCase(TestCase):
     """ListAPIView test case."""
@@ -295,8 +385,87 @@ class ListAPIViewTestCase(TestCase):
         
         self.assertEqual(response.status_code, 200)
         
+
+
+class CommentAPIViewTestCase(TestCase):
+    """CommentAPIView test case."""
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        return super().setUpClass()
+    
+    def setUp(self) -> None:
+        self.url = "comments/<int:comment_id>/"
+        self.view = CommentAPIView.as_view()
+        self.request_factory = APIRequestFactory()
+        
+    def get_posts_data(self, posts) -> list:
+        """Get posts data."""
+
+        posts_data = []
+        for post in posts:
+            data = {
+                "id": post.id, 
+                "title": post.title, 
+                "text": post.text,
+                "is_published": post.is_published(),
+                }
+            posts_data.append(data)
+
+        return posts_data
+        
+    def get_comment_data(self, comment) -> list:
+        """Return individual comment data."""
+        
+        data = {
+            "id": comment.id, 
+            "post": comment.post.id,
+            "author": comment.author,
+            "text": comment.text,
+            "is_approved": comment.is_approved()
+            }
+        return data
+        
+    def test_get_method(self) -> None:
+        """Test Get method"""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        post_id = post.id
+        
+        comment = Comment.objects.create(
+                post = post,
+                author = user,
+                text = "Test comment on test post ",
+        )
+
+        comment_id = comment.id
+        
+        comments = Comment.objects.filter(post=post_id).first()
+        expected = {
+                    "data": self.get_comment_data(comments)
+                }
+
+        self.url = "comments/" + str(comment_id) + "/"
+
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, comment_id=comment_id)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
+        
+        
+
+#work on this next
 class CommentsAPIViewTestCase(TestCase):
-    """CommentsAPIView test case"""
+    """CommentsAPIView test case."""
     
     @classmethod
     def setUpClass(cls) -> None:
@@ -312,14 +481,13 @@ class CommentsAPIViewTestCase(TestCase):
 
         posts_data = []
         for post in posts:
-            if post.is_published():
-                data = {
-                    "id": post.id, 
-                    "title": post.title, 
-                    "text": post.text,
-                    "is_published": post.is_published(),
-                    }
-                posts_data.append(data)
+            data = {
+                "id": post.id, 
+                "title": post.title, 
+                "text": post.text,
+                "is_published": post.is_published(),
+                }
+            posts_data.append(data)
 
         return posts_data
     
@@ -340,16 +508,15 @@ class CommentsAPIViewTestCase(TestCase):
         """Get comments data."""
         
         comments_data = []
-        for comment in comments:
-            if comment.is_approved():    
-                data = {
-                    "id": comment.id,
-                    "post": self.get_post_data(comment.post),
-                    "author": comment.author, 
-                    "text": comment.text,
-                    "is_approved": comment.is_approved()
-                    }
-                comments_data.append(data)
+        for comment in comments: 
+            data = {
+                "id": comment.id,
+                "post": self.get_post_data(comment.post),
+                "author": comment.author, 
+                "text": comment.text,
+                "is_approved": comment.is_approved()
+                }
+            comments_data.append(data)
         
         return comments_data
     
@@ -365,23 +532,280 @@ class CommentsAPIViewTestCase(TestCase):
             }
         return data
     
-    def test_post_method(self) -> None:
+    def test_post_method_return_error(self) -> None:
         """GET method should return all posts."""
         
         user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+            author = user,
+            title = "Test title",
+            text = "Test post"
+        )
+        comment = Comment.objects.create(
+            post = post,
+            author = user,
+            text = "Test comment on test post"
+        )
         
-        data = {
-            "post": "Test post",
-            "author": "Test author",
-            "text": "Test text"
+        expected = { 
+            "title": "Success!",
+            "message": "Comment created!",
+            "data": self.get_comment_data(comment)
         }
         
-        Comment.objects.all()
-        
-        request = self.request_factory.post(self.url, data=data)
+        request = self.request_factory.post(self.url)
         force_authenticate(request, user=user, token=user.auth_token)
         response = self.view(request)
         
         response_data = response.data
         
         self.assertEqual(response.status_code, 400)
+        
+        
+    
+    def test_post_method(self) -> None:
+        """GET method should return all posts."""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+            author = user,
+            title = "Test title",
+            text = "Test post"
+        )
+        comment = Comment.objects.create(
+            post = post,
+            author = user,
+            text = "Test comment on test post"
+        )
+        
+        comments = Comment.objects.all()
+        expected = { 
+            "title": "Success!",
+            "message": "Comment created!",
+            "data": self.get_comment_data(comment)
+        }
+        
+        request = self.request_factory.post(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request)
+        
+        response_data = response.data
+        
+        self.assertEqual(response.status_code, 400)
+        
+        
+        
+class PostCommentsAPIViewTestCase(TestCase):
+    """PostCommentsAPIView test case."""
+
+    maxDiff = None
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        return super().setUpClass()
+
+    def setUp(self) -> None:
+        self.url = "post/<int:post_id>/comments/"
+        self.view =  PostCommentsAPIView.as_view()
+        self.request_factory = APIRequestFactory()
+
+    def get_posts_data(self, posts) -> list:
+        """Get posts data."""
+
+        posts_data = []
+        for post in posts:
+            if post.is_published():
+                data = {
+                    "id": post.id, 
+                    "title": post.title, 
+                    "text": post.text,
+                    "is_published": post.is_published(),
+                    }
+                posts_data.append(data)
+
+        return posts_data
+    
+    def get_post_data(self, post):
+        """Return individual post data."""
+        
+        data = {
+            "id": post.id, 
+            "title": post.title, 
+            "text": post.text, 
+            "author": post.author.id,
+            "is_published": post.is_published()
+            }
+        return data
+
+    def get_comments_data(self, comments):
+        """Get comment data from comments queryset."""
+        comments_data = []
+        for comment in comments:
+            data = {
+                "id": comment.id, 
+                "post": self.get_post_data(comment.post),
+                "author": comment.author, 
+                "text": comment.text,
+                "is_approved": comment.is_approved(),
+                }
+            comments_data.append(data)
+        
+        return comments_data
+    
+    def test_get_method_returns_all_comments(self) -> None:
+        """GET method should return comments."""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        comment = Comment.objects.create(
+                post = post,
+                author = user,
+                text = "Test comment on test post ",
+        )
+        post_id = post.id
+        
+        comments = Comment.objects.filter(post=post_id)
+        expected = {
+                    "data": self.get_comments_data(comments)
+                }
+
+        self.url = "post/" + str(post_id) + "/comments/"
+
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
+        
+        
+
+class ApprovingCommentAPIViewTestCase(TestCase):
+    """ApprovingCommentAPIView test case."""
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        return super().setUpClass()
+    
+    def setUp(self) -> None:
+        self.url = "approve/comment/<int:comment_id>/"
+        self.request_factory = APIRequestFactory()
+        self.view = ApprovingCommentAPIView.as_view()
+        
+    def test_patch_method(self) -> None:
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        comment = Comment.objects.create(
+                post = post,
+                author = user,
+                text = "Test comment on test post ",
+        )
+        comment_id = comment.id
+        
+        comments = Comment.objects.get(pk=comment_id)
+        
+        comments.approve()
+        expected = {
+            "title": "Success",
+            "message": "Comment Approved!"
+        }
+        
+        self.url = "approve//comment/" + str(comment_id) + "/"
+
+        request = self.request_factory.patch(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, comment_id=comment_id)
+        
+        response_data = response.data
+
+        self.assertTrue(comments.is_approved())
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
+        
+        
+    def test_delete_method(self) -> None:
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        comment = Comment.objects.create(
+                post = post,
+                author = user,
+                text = "Test comment on test post ",
+        )
+        comment_id = comment.id
+        
+        expected = {
+            "title": "Success",
+            "message": "Comment Removed!"
+        }
+        
+        self.url = "approve//comment/" + str(comment_id) + "/"
+
+        request = self.request_factory.delete(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, comment_id=comment_id)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
+        
+        
+
+class PostPublishingAPIViewTestCase(TestCase):
+    """PostPublishingAPIView test case."""
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        return super().setUpClass()
+    
+    def setUp(self) -> None:
+        self.url = "post/publish/<int:post_id>/"
+        self.view = PostPublishingAPIView.as_view()
+        self.request_factory = APIRequestFactory()
+        
+    def test_patch_method(self) -> None:
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        
+        post_id = post.id
+        
+        posts = Post.objects.get(pk=post_id)
+        
+        posts.publish()
+        expected = {
+            "title": "Success",
+            "message": "Post published!"
+        }
+        
+        self.url = "post//publish/" + str(post_id) + "/"
+
+        request = self.request_factory.patch(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id)
+        
+        response_data = response.data
+
+        self.assertTrue(posts.is_published())
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 200)
