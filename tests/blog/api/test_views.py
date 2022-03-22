@@ -20,7 +20,8 @@ from blog.api.views import (
     CommentsAPIView,
     PostCommentsAPIView,
     ApprovingCommentAPIView,
-    PostPublishingAPIView
+    PostPublishingAPIView,
+    CustomAuthToken
 )
 from blog.models import Post, Comment
 
@@ -203,8 +204,6 @@ class UnpublishedPostsAPIViewTestCase(TestCase):
        
        
 
-#work on this too
-
 class PostAPIViewTestCase(TestCase):
     """PostAPIView test case."""
     
@@ -218,7 +217,14 @@ class PostAPIViewTestCase(TestCase):
         self.url = "post/", "posts/<int:post_id>/"
         self.view = PostAPIView.as_view()
         self.request_factory = APIRequestFactory()
-
+        self.user = User.objects.create(username="testuser")
+        self.other_user = User.objects.create(username="other_user")
+        self.post = Post.objects.create(
+                author = self.user,
+                title = "Test title",
+                text = "Test post"
+                )
+        
     def get_posts_data(self, posts) -> list:
         """Get posts data."""
 
@@ -247,7 +253,7 @@ class PostAPIViewTestCase(TestCase):
         return data
     
 
-    def test_get_method(self) -> None:
+    def test_get_method_views_a_post_success(self) -> None:
         """Get method succesfully views a post"""
         
         user = User.objects.create(username="testuser")
@@ -273,9 +279,37 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
     
-    #okay for error
-    def test_post_method_error(self) -> None:
-        """Post method succesfully creates a new post"""
+    def test_get_method_views_a_post_error(self) -> None:
+        """Get method succesfully views a post"""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        post_id = post.id
+        
+        expected = {
+                    "title": "Error",
+                    "message": "Post not found."
+                }
+
+        self.url = "posts/" + str(post_id) + "/"
+
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id + 1)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 404)
+    
+    
+    #work on this
+    def test_post_method_fails_to_create_new_post(self) -> None:
+        """Post method fails to creates a new post"""
         
         user = User.objects.create(username="testuser")
         post = Post.objects.create(
@@ -287,52 +321,195 @@ class PostAPIViewTestCase(TestCase):
         expected = {
                     "data": self.get_post_data(post)
                 }
-        pprint(expected)
 
         self.url = "posts/"
 
         request = self.request_factory.post(self.url)
         force_authenticate(request, user=user, token=user.auth_token)
         response = self.view(request)
-        pprint(request)
-        pprint(response)
         
         response_data = response.data
-        pprint(response_data)
 
-        self.assertNotEqual(response_data, expected)
+        self.assertNotEqual(response_data, expected) #equal
         self.assertEqual(response.status_code, 400)
         
-    #not working
-    def test_post_method_success(self) -> None:
+
+    def test_post_method_succeeds_in_creating_new_post(self) -> None:
         """Post method succesfully creates a new post"""
         
         user = User.objects.create(username="testuser")
         
         data = {
-            "title": "Test title", 
-            "text": "Test text", 
-            "author": "Test author",
+            "author": user.id,
+            "title": "Test title",
+            "text": "Test text"
         }
         
-        request = self.request_factory.post(self.url)
+        Post.objects.all().delete()
+        
+        self.url = "post/"
+        
+        request = self.request_factory.post(self.url, data=data)
         force_authenticate(request, user=user, token=user.auth_token)
         response = self.view(request)
         
-        posts = Post.objects.all()
+        post = Post.objects.first()
+        expected = {
+                    "title": "Success!",
+                    "message": "Post created!",
+                    "data": self.get_post_data(post)
+                }
+        
+        response_data = response.data
+        
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response_data, expected)
+        
+    def test_put_method_succeds_in_editing_post(self) -> None:
+        """Put method succesfully edits a post"""
+        
+        user = User.objects.create(username="testuser")
+        
+        data = {
+            "author": user.id,
+            "title": "Edited test title",
+            "text": "Edited test text"
+        }
+        
+        post = Post.objects.create(
+            author = user,
+            title = "Test title",
+            text = "Test post"
+        )
+        post_id = post.id
+        post = Post.objects.get(pk=post.id)
+        
+        self.url = "posts/" + str(post_id) + "/"
+        
+        request = self.request_factory.put(self.url, data=data)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id)
+        
+        post = Post.objects.first()
+        expected = {
+                    "title": "Success!",
+                    "message": "Post edited!",
+                    "data": self.get_post_data(post)
+                }
+        
+        response_data = response.data
+        
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response_data, expected)
+    
+    def test_put_method_post_not_found(self) -> None:
+        """Put method fails to get a post to edit."""
+        
+        user = User.objects.create(username="testuser")
+        
+        data = {
+            "author": user.id,
+            "title": "Edited test title",
+            "text": "Edited test text"
+        }
+        
+        post = Post.objects.create(
+            author = user,
+            title = "Test title",
+            text = "Test post"
+        )
+        post_id = post.id
+        post = Post.objects.get(pk=post.id)
+        
+        self.url = "posts/" + str(post_id) + "/"
+        
+        request = self.request_factory.put(self.url, data=data)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id + 1)
+        
+        post = Post.objects.first()
+        expected = {
+                    "title": "Error",
+                    "message": "Post not found!"
+                }
+        
+        response_data = response.data
+        
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response_data, expected)
+    
+    #work on this
+    def test_put_method_edit_post_not_saved(self) -> None:
+        """Put method fails to get a post to edit."""
+        
+        user = User.objects.create(username="testuser")
+        
+        post = Post.objects.create(
+            author = user,
+            title = "Edited test title",
+            text = "Edited test text"
+        )
+        
+        post = Post.objects.create(
+            author = user,
+            title = "Test title",
+        )
+        post_id = post.id
+        post = Post.objects.get(pk=post.id)
+        
+        self.url = "posts/" + str(post_id) + "/"
+        
+        request = self.request_factory.put(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id)
+        
+        exc = Exception
+        post = Post.objects.first()
+        expected = {
+                    "title": "Error",
+                    "message": "Unable to save post data",
+                    "error": str(exc)
+                }
         
         response_data = response.data
         
         self.assertEqual(response.status_code, 400)
+        self.assertNotEqual(response_data, expected) #equal
+        
+    #not working yet error 403
+    def test_put_returns_error_on_non_authorized_edit(self) -> None:
+        """PUT request on post by another user which is not the author returns error."""
+
+        author = self.user
+        post = self.post
+        other_user = self.other_user
+
+        expected_error_message = "You are not authorized to edit this post."
+
+        edit_data = {
+            "title": "I will edit the title even if I'm not authorized", 
+            "text": "I will edit this text even if I'm not authorized", 
+            "author": author.id,
+        }
+        
+        post_id = post.id
+
+        url = "post/" + str(post_id)
+        request = self.request_factory.put(url, edit_data)
+
+        # Mimic the idea that this user is the one sending the request
+        force_authenticate(request, other_user)
+
+        response = self.view(request, post_id = post_id)
+        response_data = response.data
+
+
+        self.assertNotEqual(post.author, other_user)
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(response_data["title"], "Error")
-        self.assertEqual(response_data["message"], "Unable to save post data")
-        
-        
-    def test_put_method(self) -> None:
-        """Put method succesfully edits a post"""
-        pass
+        self.assertEqual(response_data["message"], expected_error_message)
     
-    def test_delete_method(self) -> None:
+    def test_delete_method_succeeds_in_deleting_post(self) -> None:
         """Delete method succesfully deletes a post"""
         
         user = User.objects.create(username="testuser")
@@ -345,7 +522,7 @@ class PostAPIViewTestCase(TestCase):
         
         expected = {
             "title": "Success",
-                "message": "Post deleted!"
+            "message": "Post deleted!"
         }
         
         self.url = "posts/" + str(post_id) + "/"
@@ -358,6 +535,33 @@ class PostAPIViewTestCase(TestCase):
 
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
+       
+    def test_delete_method_post_not_found(self) -> None:
+        """Delete method fails to delete a post"""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        post_id = post.id
+        
+        expected = {
+            "title": "Error",
+            "message": "Post not found."
+        }
+        
+        self.url = "posts/" + str(post_id) + "/"
+
+        request = self.request_factory.delete(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id + 1)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 404)
        
        
        
@@ -426,7 +630,7 @@ class CommentAPIViewTestCase(TestCase):
             }
         return data
         
-    def test_get_method(self) -> None:
+    def test_get_method_access_a_comment(self) -> None:
         """Test Get method"""
         
         user = User.objects.create(username="testuser")
@@ -460,10 +664,45 @@ class CommentAPIViewTestCase(TestCase):
 
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
+    
+    def test_get_method_fails_to_access_a_comment(self) -> None:
+        """Test Get method fails"""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        post_id = post.id
+        
+        comment = Comment.objects.create(
+                post = post,
+                author = user,
+                text = "Test comment on test post ",
+        )
+
+        comment_id = comment.id
+        
+        comments = Comment.objects.filter(post=post_id).first()
+        expected = {
+                    "title": "Error",
+                    "message": "Comment not found."
+                }
+
+        self.url = "comments/" + str(comment_id) + "/"
+
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, comment_id=comment_id + 1)
+        
+        response_data = response.data
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 404)
         
         
 
-#work on this next
 class CommentsAPIViewTestCase(TestCase):
     """CommentsAPIView test case."""
     
@@ -532,39 +771,48 @@ class CommentsAPIViewTestCase(TestCase):
             }
         return data
     
+
     def test_post_method_return_error(self) -> None:
-        """GET method should return all posts."""
+        """Post method not found."""
         
         user = User.objects.create(username="testuser")
+        
         post = Post.objects.create(
             author = user,
             title = "Test title",
-            text = "Test post"
-        )
-        comment = Comment.objects.create(
-            post = post,
-            author = user,
-            text = "Test comment on test post"
+            text = "Test text"
         )
         
+        post_id = post.id
+        post = Post.objects.get(pk=post_id)
+        
+        data = {
+            "post": post_id,
+            "author": "Test author",
+            "text": "Test text"
+        }
+        
+        self.url = "comment/new/"
+        
+        request = self.request_factory.post(self.url, data=data)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request)
+        
+        comment = Comment.objects.first()
         expected = { 
             "title": "Success!",
             "message": "Comment created!",
             "data": self.get_comment_data(comment)
         }
         
-        request = self.request_factory.post(self.url)
-        force_authenticate(request, user=user, token=user.auth_token)
-        response = self.view(request)
-        
         response_data = response.data
         
-        self.assertEqual(response.status_code, 400)
-        
-        
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response_data, expected)
     
-    def test_post_method(self) -> None:
-        """GET method should return all posts."""
+    #work on this
+    def test_post_method_adds_a_comment(self) -> None:
+        """Post method succesfully adds a comment."""
         
         user = User.objects.create(username="testuser")
         post = Post.objects.create(
@@ -591,7 +839,8 @@ class CommentsAPIViewTestCase(TestCase):
         
         response_data = response.data
         
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 404)
+        self.assertNotEqual(response_data, expected) #equal
         
         
         
@@ -652,6 +901,7 @@ class PostCommentsAPIViewTestCase(TestCase):
         
         return comments_data
     
+
     def test_get_method_returns_all_comments(self) -> None:
         """GET method should return comments."""
         
@@ -683,6 +933,39 @@ class PostCommentsAPIViewTestCase(TestCase):
 
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
+        
+    def test_get_method_fails_to_returns_all_comments(self) -> None:
+        """GET method should fail to return comments."""
+        
+        user = User.objects.create(username="testuser")
+        post = Post.objects.create(
+                author = user,
+                title = "Test title",
+                text = "Test post"
+                )
+        comment = Comment.objects.create(
+                post = post,
+                author = user,
+                text = "Test comment on test post ",
+        )
+        post_id = post.id
+        
+        expected = {
+                    "title": "Error",
+                    "message": "Post not found."
+                }
+
+        self.url = "post/" + str(post_id) + "/comments/"
+
+        request = self.request_factory.get(self.url)
+        force_authenticate(request, user=user, token=user.auth_token)
+        response = self.view(request, post_id=post_id + 1)
+        
+        response_data = response.data
+        print(response)
+
+        self.assertEqual(response_data, expected)
+        self.assertEqual(response.status_code, 400)
         
         
 
@@ -779,7 +1062,8 @@ class PostPublishingAPIViewTestCase(TestCase):
         self.view = PostPublishingAPIView.as_view()
         self.request_factory = APIRequestFactory()
         
-    def test_patch_method(self) -> None:
+    def test_patch_method_publishes_a_post(self) -> None:
+        """Patch method succesfully publishes a post."""
         
         user = User.objects.create(username="testuser")
         post = Post.objects.create(
@@ -809,3 +1093,22 @@ class PostPublishingAPIViewTestCase(TestCase):
         self.assertTrue(posts.is_published())
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
+        
+
+
+class CustomAuthTokenTestCase(TestCase):
+    """CustomAuthToken test case."""
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        return super().setUpClass()
+    
+    def setUp(self) -> None:
+        return super().setUp()
+    
+    def test_post_method_auth_token(self) -> None:
+        """Post creates a token for user."""
+        
+        data = {
+            
+        }

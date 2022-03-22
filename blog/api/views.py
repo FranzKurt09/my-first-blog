@@ -92,6 +92,8 @@ class PostPublishingAPIView(APIView):
     """API for publishing posts."""
     
     def patch(self, request, post_id, *args, **kwargs):
+        """Publishin a test."""
+        
         post = Post.objects.get(pk=post_id)
         post.publish()
         response = {
@@ -134,9 +136,11 @@ class PostAPIView(PostsDataMixin, APIView):
                 "title": "Error",
                 "message": "Post not found."
             }
-            return Response(error_response, status=400)
+            return Response(error_response, status=404)
         
     def post(self, request, *args, **kwargs):
+        """Post the data given."""
+        
         try:
             data = request.data
             serializer = PostSerializer(data=data)
@@ -209,13 +213,15 @@ class PostAPIView(PostsDataMixin, APIView):
                 "title": "Error",
                 "message": "Post not found."
             }
-            return Response(error_response, status=400)
+            return Response(error_response, status=404)
     
 
 class ListAPIView(PostsDataMixin, APIView):
     """List all post data"""
     
     def get(self, request, format=None):
+        """get method returns all post data wether published or not."""
+
         posts = Post.objects.all()
         serializer = PostSerializer(posts, many=True)
         return Response(serializer.data)
@@ -238,13 +244,15 @@ class CommentAPIView(CommentsDataMixin, APIView):
                 "title": "Error",
                 "message": "Comment not found."
             }
-            return Response(error_response, status=400)
+            return Response(error_response, status=404)
 
 
 class CommentsAPIView(CommentsDataMixin, APIView):
     """API for posting comments."""
     
     def post(self, request, *args, **kwargs):
+        """Posting a comment."""
+    
         try:
             data = request.data
             serializer = CommentSerializer(data=data)
@@ -266,7 +274,7 @@ class CommentsAPIView(CommentsDataMixin, APIView):
                 "message": "Unable to save comment data",
                 "error": str(exc),
             }
-            return Response(error_response, status=400)
+            return Response(error_response, status=404)
         
 
 class ApprovedCommentsAPIView(CommentsDataMixin, APIView):
