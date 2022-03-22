@@ -1,0 +1,14 @@
+# https://coverage.readthedocs.io/en/6.3.2/config.html#configuration-reference
+
+[run]
+branch = true
+
+include = 
+    blog/api/*
+    blog/*
+
+omit =
+    *migrations*
+    *tests*
+    *manage*
+    *init*
