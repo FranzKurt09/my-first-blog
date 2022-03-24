@@ -247,7 +247,7 @@ class PostAPIViewTestCase(TestCase):
             }
         return data
     
-    def test_get_method_views_a_post_success(self) -> None:
+    def test_get_method_returns_a_post(self) -> None:
         """Get method succesfully views a post"""
         
         user = User.objects.create(username="testuser")
@@ -273,7 +273,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
     
-    def test_get_method_views_a_post_error(self) -> None:
+    def test_get_method_returns_error_post_not_found(self) -> None:
         """Get method succesfully views a post"""
         
         user = User.objects.create(username="testuser")
@@ -300,7 +300,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 404)
     
-    def test_post_method_fails_to_create_new_post(self) -> None:
+    def test_post_method_returns_error_in_creating_new_post(self) -> None:
         """Post method fails to creates a new post"""
         
         user = User.objects.create(username="testuser")
@@ -324,7 +324,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response_data["message"], expected)
         self.assertEqual(response.status_code, 400)
         
-    def test_post_method_succeeds_in_creating_new_post(self) -> None:
+    def test_post_method_returns_new_post(self) -> None:
         """Post method succesfully creates a new post"""
         
         user = User.objects.create(username="testuser")
@@ -355,7 +355,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response_data, expected)
     
-    def test_put_method_succeds_in_editing_post(self) -> None:
+    def test_put_method_returns_edited_post(self) -> None:
         """Put method succesfully edits a post"""
         
         user = User.objects.create(username="testuser")
@@ -392,7 +392,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response_data, expected)
     
-    def test_put_method_post_not_found(self) -> None:
+    def test_put_method_returns_post_not_found(self) -> None:
         """Put method fails to get a post to edit."""
         
         user = User.objects.create(username="testuser")
@@ -465,7 +465,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response_data["message"], expected)
         self.assertEqual(response_data["title"], "Error")
     
-    def test_delete_method_succeeds_in_deleting_post(self) -> None:
+    def test_delete_method_returns_message_post_deleted(self) -> None:
         """Delete method succesfully deletes a post"""
         
         user = User.objects.create(username="testuser")
@@ -492,7 +492,7 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
 
-    def test_delete_method_post_not_found(self) -> None:
+    def test_delete_method_returns_post_not_found(self) -> None:
         """Delete method fails to delete a post"""
         
         user = User.objects.create(username="testuser")
@@ -521,7 +521,7 @@ class PostAPIViewTestCase(TestCase):
 
     #not working yet error 403
     @tag("solo")
-    def test_delete_method_user_not_authorized(self) -> None:
+    def test_delete_method_returns_user_not_authorized(self) -> None:
         """Delete request on another user."""
         
         wrong_user = User.objects.create(username="wronguser")
@@ -622,7 +622,7 @@ class CommentAPIViewTestCase(TestCase):
             }
         return data
     
-    def test_get_method_access_a_comment(self) -> None:
+    def test_get_method_returns_a_comment(self) -> None:
         """Test Get method"""
         
         user = User.objects.create(username="testuser")
@@ -658,7 +658,7 @@ class CommentAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
     
 
-    def test_get_method_fails_to_access_a_comment(self) -> None:
+    def test_get_method_returns_404_comment_not_found(self) -> None:
         """Test Get method fails"""
         
         user = User.objects.create(username="testuser")
@@ -765,7 +765,7 @@ class CommentsAPIViewTestCase(TestCase):
         return data
     
 
-    def test_post_method_successful(self) -> None:
+    def test_post_method_returns_message_comment_created(self) -> None:
         """Post method succesful in adding a comment."""
         
         user = User.objects.create(username="testuser")
@@ -803,7 +803,7 @@ class CommentsAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response_data, expected)
 
-    def test_post_method_fails_to_add_comment(self) -> None:
+    def test_post_method_returns_404_message_unable_to_save_comment_data(self) -> None:
         """Post method fails to adds a comment."""
         
         user = User.objects.create(username="testuser")
@@ -969,7 +969,7 @@ class ApprovingCommentAPIViewTestCase(TestCase):
         self.request_factory = APIRequestFactory()
         self.view = ApprovingCommentAPIView.as_view()
         
-    def test_patch_method_for_approving_commnet(self) -> None:
+    def test_patch_method_returns_comment_approved(self) -> None:
         """Patch succesfully approves a comment."""
         
         user = User.objects.create(username="testuser")
@@ -1006,7 +1006,7 @@ class ApprovingCommentAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         
         
-    def test_delete_method_succesfully_deletes_comment(self) -> None:
+    def test_delete_method_returns_comment_removed(self) -> None:
         """"Delete method succesfully deletes a comment."""
         
         user = User.objects.create(username="testuser")
@@ -1099,7 +1099,7 @@ class CustomAuthTokenTestCase(TestCase):
         self.request_factory = APIRequestFactory()
     
 
-    def test_post_method_auth_token(self) -> None:
+    def test_post_method_return_auth_token(self) -> None:
         """Post creates a token for user."""
         
         username = "testuser"
@@ -1130,8 +1130,8 @@ class CustomAuthTokenTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_data, expected)
     
-    def test_post_method_auth_token_invalid_user(self) -> None:
-        """Post invalid input."""
+    def test_post_method_return_400_auth_token_invalid_user(self) -> None:
+        """Post invalid user."""
         
         wrong_user = "wronguser"
         username = "testuser"
