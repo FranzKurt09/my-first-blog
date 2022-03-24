@@ -364,14 +364,23 @@ class PostCommentsAPIView(CommentsDataMixin, APIView):
         """Get post data on given post id or primary key, pk."""
         
         try:
+            post_exists = Post.objects.filter(id=post_id).exists()
+            if not post_exists:
+                error_response = {
+                "title": "Error",
+                "message": "Post not found."
+            }
+                return Response(error_response, status=404)
             comment = Comment.objects.filter(post=post_id)
             response = {
                 "data": self.get_comments_data(comment)
             }
             return Response(response, 200)
-        except Comment.DoesNotExist:
+        except Exception as exc:
             error_response = {
                 "title": "Error",
-                "message": "Post and Comments not found."
+                "message": "Something went wrong, please contact administrator",
+                "error": str(exc)
             }
-            return Response(error_response, status=404)
+            return Response(error_response, status=500)
+            

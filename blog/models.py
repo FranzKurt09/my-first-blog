@@ -28,7 +28,7 @@ class Post(models.Model):
         return self.published_date is not None
     
 class Comment(models.Model):
-    post = models.ForeignKey('blog.Post', on_delete=models.CASCADE, related_name='approved_comments')
+    post = models.ForeignKey('blog.Post', on_delete=models.CASCADE, related_name='post_comments')
     author = models.CharField(max_length=200)
     text = models.TextField()
     created_date = models.DateTimeField(default=timezone.now)

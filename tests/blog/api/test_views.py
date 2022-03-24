@@ -431,36 +431,36 @@ class PostAPIViewTestCase(TestCase):
     def test_put_returns_error_on_non_authorized_edit(self) -> None:
         """PUT request on post by another user which is not the author returns error."""
         
-        user = User.objects.create(username="testuser")
+        wrong_user = "wronguser"
+        username = "testuser"
+        
+        user = User.objects.create(username=username)
         
         post = Post.objects.create(
             author = user,
             title = "Test title",
             text = "Test post"
         )
-        post_id = post.id
-        post = Post.objects.get(pk=post.id)
-        print(post)
         
-        other_user = User.objects.create(username="othertestuser")
+        post_id = post.id
         
         expected = "You are not authorized to delete this post"
         
         data = {
             "title": "Editing title with unauthorized user",
             "text": "Editting text wiht unauthorized user",
-            "author": other_user.id
+            "author": wrong_user
         }
         
         self.url = "posts/" + str(post_id) + "/"
         
         request = self.request_factory.put(self.url, data=data)
-        force_authenticate(request, user=user)
+        force_authenticate(request, user)
         response = self.view(request, post_id=post_id)
         
         response_data = response.data
         
-        self.assertNotEqual(post.author, other_user)        
+        self.assertNotEqual(post.author, wrong_user)        
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response_data["message"], expected)
         self.assertEqual(response_data["title"], "Error")
@@ -491,7 +491,7 @@ class PostAPIViewTestCase(TestCase):
 
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
-       
+
     def test_delete_method_post_not_found(self) -> None:
         """Delete method fails to delete a post"""
         
@@ -520,42 +520,38 @@ class PostAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
 
     #not working yet error 403
+    @tag("solo")
     def test_delete_method_user_not_authorized(self) -> None:
         """Delete request on another user."""
         
-        password = "testpassword"
+        wrong_user = User.objects.create(username="wronguser")
+        username = "testuser"
         
-        user = User.objects.create(username="testuser")
-        user.set_password(password)
-        user.save()
+        user = User.objects.create(username=username)
         
         post = Post.objects.create(
             author = user,
             title = "Test title",
             text = "Test post"
         )
+        
         post_id = post.id
-        other_user = User.objects.create(username="otheruser")
         
         expected = "You are not authorized to delete this post"
         
         data = {
-            "title": "Deleting title with unauthorized user",
-            "text": "Deleting text wiht unauthorized user",
-            "author": other_user.id
+            "author": wrong_user.id
         }
        
         self.url = "post/" + str(post_id) + "/"
         
         request = self.request_factory.delete(self.url, data)
-        force_authenticate(request, user)
+        force_authenticate(request, wrong_user)
         response = self.view(request, post_id=post_id)
         
         response_data = response.data
-        print(response_data)
-        print(expected)
         
-        self.assertNotEqual(post.author, other_user)
+        self.assertNotEqual(post.author, wrong_user)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response_data["title"], "Error")
         self.assertEqual(response_data["message"], expected)
@@ -932,24 +928,14 @@ class PostCommentsAPIViewTestCase(TestCase):
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 200)
         
-    #not working parin
-    @tag("solo")
-    def test_get_method_fails_to_returns_all_comments(self) -> None:
+    def test_get_method_returns_404_with_message_on_non_existent_post(self) -> None:
         """GET method should fail to return comments."""
         
         user = User.objects.create(username="testuser")
-        post = Post.objects.create(
-                author = user,
-                title = "Test title",
-                text = "Test post"
-                )
-        comment = Comment.objects.create(
-                post = post,
-                author = user,
-                text = "Test comment on test post ",
-        )
         
-        post_id = comment.post.id
+        Post.objects.all().delete()
+        
+        post_id = 1_000_000
         
         expected = {
                     "title": "Error",
@@ -960,13 +946,14 @@ class PostCommentsAPIViewTestCase(TestCase):
 
         request = self.request_factory.get(self.url)
         force_authenticate(request, user=user, token=user.auth_token)
-        response = self.view(request, post_id=post_id + 1)
+        response = self.view(request, post_id=post_id)
         
         
         response_data = response.data
 
         self.assertEqual(response_data, expected)
         self.assertEqual(response.status_code, 404)
+        self.assertFalse(Post.objects.filter(id=post_id).exists())
         
         
 
@@ -982,7 +969,8 @@ class ApprovingCommentAPIViewTestCase(TestCase):
         self.request_factory = APIRequestFactory()
         self.view = ApprovingCommentAPIView.as_view()
         
-    def test_patch_method(self) -> None:
+    def test_patch_method_for_approving_commnet(self) -> None:
+        """Patch succesfully approves a comment."""
         
         user = User.objects.create(username="testuser")
         post = Post.objects.create(
@@ -1018,7 +1006,8 @@ class ApprovingCommentAPIViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         
         
-    def test_delete_method(self) -> None:
+    def test_delete_method_succesfully_deletes_comment(self) -> None:
+        """"Delete method succesfully deletes a comment."""
         
         user = User.objects.create(username="testuser")
         post = Post.objects.create(
