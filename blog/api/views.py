@@ -192,10 +192,10 @@ class PostAPIView(PostsDataMixin, APIView):
         except Exception as exc:
             error_response = {
                 "title": "Error",
-                "message": "Unable to save post data",
+                "message": "You are not authorized to delete this post",
                 "error": str(exc)
             }
-            return Response(error_response, status=400)
+            return Response(error_response, status=403)
 
     def delete(self, request, post_id, *args, **kwargs):
         """Delete post in given post id or primary key, pk"""
@@ -206,7 +206,6 @@ class PostAPIView(PostsDataMixin, APIView):
                 "title": "Success",
                 "message": "Post deleted!"
             }
-            
             return Response(response, status=200)
         except Post.DoesNotExist:
             error_response = {
@@ -214,6 +213,15 @@ class PostAPIView(PostsDataMixin, APIView):
                 "message": "Post not found."
             }
             return Response(error_response, status=404)
+        except Exception as exc:
+            error_response = {
+                "title": "Error",
+                "message": "You are not authorized to delete this post",
+                "error": str(exc)
+            }
+            return Response(error_response, status=403)
+
+            
     
 
 class ListAPIView(PostsDataMixin, APIView):
@@ -324,16 +332,29 @@ class ApprovingCommentAPIView(APIView):
 class CustomAuthToken(ObtainAuthToken):
     
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({
-            'token': token.key,
-            'user_id': user.pk,
-            'email': user.email
+        
+        try:
+            serializer = self.serializer_class(data=request.data, context={'request': request})
+            if serializer.is_valid(raise_exception=True):
+                user = serializer.validated_data['user']
+                token, created = Token.objects.get_or_create(user=user)
+                response = {
+                    'token': token.key,
+                    'user_id': user.pk,
+                    'email': user.email
+                }
+                return Response(response, 200)
+            else:
+                raise ValueError(str(serializer.errors))
+        except Exception as exc:
+            error_response = {
+                "title": "Error",
+                "message": "Invalid username/password",
+                "error": str(exc)
             }
-        )
+            return Response(error_response, status=400)
+        
+        
         
 
 class PostCommentsAPIView(CommentsDataMixin, APIView):
@@ -353,4 +374,4 @@ class PostCommentsAPIView(CommentsDataMixin, APIView):
                 "title": "Error",
                 "message": "Post and Comments not found."
             }
-            return Response(error_response, status=400)
+            return Response(error_response, status=404)
