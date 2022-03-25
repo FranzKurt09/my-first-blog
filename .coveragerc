@@ -5,10 +5,11 @@ branch = true
 
 include = 
     blog/api/*
-    blog/*
 
 omit =
     *migrations*
     *tests*
     *manage*
     *init*
+    *mysite*
+    *blog/views.py*

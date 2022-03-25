@@ -525,9 +525,8 @@ class PostAPIViewTestCase(TestCase):
         """Delete request on another user."""
         
         wrong_user = User.objects.create(username="wronguser")
-        username = "testuser"
         
-        user = User.objects.create(username=username)
+        user = User.objects.create(username="testuser")
         
         post = Post.objects.create(
             author = user,
@@ -538,14 +537,10 @@ class PostAPIViewTestCase(TestCase):
         post_id = post.id
         
         expected = "You are not authorized to delete this post"
-        
-        data = {
-            "author": wrong_user.id
-        }
        
         self.url = "post/" + str(post_id) + "/"
         
-        request = self.request_factory.delete(self.url, data)
+        request = self.request_factory.delete(self.url)
         force_authenticate(request, wrong_user)
         response = self.view(request, post_id=post_id)
         

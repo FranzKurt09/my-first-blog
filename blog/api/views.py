@@ -201,25 +201,29 @@ class PostAPIView(PostsDataMixin, APIView):
         """Delete post in given post id or primary key, pk"""
         
         try:
-            post = Post.objects.get(pk=post_id).delete()
-            response = {
-                "title": "Success",
-                "message": "Post deleted!"
-            }
-            return Response(response, status=200)
+            user = request.user
+            
+            post = Post.objects.get(pk=post_id)
+            if user != post.author:
+                error_response = {
+                    "title": "Error",
+                    "message": "You are not authorized to delete this post"
+                }
+                return Response(error_response, status=403)
+            else:
+                post.delete()
+                response = {
+                    "title": "Success",
+                    "message": "Post deleted!"
+                }
+                return Response(response, status=200)
         except Post.DoesNotExist:
             error_response = {
                 "title": "Error",
                 "message": "Post not found."
             }
             return Response(error_response, status=404)
-        except Exception as exc:
-            error_response = {
-                "title": "Error",
-                "message": "You are not authorized to delete this post",
-                "error": str(exc)
-            }
-            return Response(error_response, status=403)
+
 
             
     
